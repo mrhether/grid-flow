@@ -55,6 +55,51 @@ function expandGrowingChildren(widgets: Widget[]) {
 }
 
 function collapseHidden(widgets: Widget[]) {
+  const spaceToNearestVisibleAbove = new Map<Widget, number>();
+  for (let i = 0; i < widgets.length; i++) {
+    const currentWidget = widgets[i];
+    // Check if any widgets above are hidden
+    let lowestVisibleAbove = undefined as Widget | undefined;
+    let lowestHiddenAbove = undefined as Widget | undefined;
+    for (let j = i - 1; j >= 0; j--) {
+      const widgetAbove = widgets[j];
+
+      const horizontalOverlap = hasXOverlap(currentWidget, widgetAbove);
+      const isAbove = widgetAbove.y + widgetAbove.height <= currentWidget.y;
+
+      if (horizontalOverlap && isAbove) {
+        if (widgetAbove.hidden) {
+          if (!lowestHiddenAbove) {
+            lowestHiddenAbove = widgetAbove;
+          } else if (
+            lowestHiddenAbove.y + lowestHiddenAbove.height <
+            widgetAbove.y + widgetAbove.height
+          ) {
+            lowestHiddenAbove = widgetAbove;
+          }
+        } else {
+          if (!lowestVisibleAbove) {
+            lowestVisibleAbove = widgetAbove;
+          } else if (
+            lowestVisibleAbove.y + lowestVisibleAbove.height <
+            widgetAbove.y + widgetAbove.height
+          ) {
+            lowestVisibleAbove = widgetAbove;
+          }
+        }
+      }
+
+      spaceToNearestVisibleAbove.set(
+        currentWidget,
+        lowestVisibleAbove
+          ? currentWidget.y - (lowestVisibleAbove.y + lowestVisibleAbove.height)
+          : 0
+      );
+    }
+  }
+
+  console.log("WWW", spaceToNearestVisibleAbove);
+
   const movedUpWidgets = new Set<Widget>();
   for (let i = 0; i < widgets.length; i++) {
     const currentWidget = widgets[i];
@@ -96,7 +141,12 @@ function collapseHidden(widgets: Widget[]) {
       lowestHiddenAbove.y + lowestHiddenAbove.height >
         lowestVisibleAbove?.y + lowestVisibleAbove.height
     ) {
-      currentWidget.y = Math.max(0, currentWidget.y - lowestHiddenAbove.height);
+      currentWidget.y = Math.max(
+        0,
+        currentWidget.y -
+          lowestHiddenAbove.height -
+          (spaceToNearestVisibleAbove.get(lowestHiddenAbove) ?? 0)
+      );
       movedUpWidgets.add(currentWidget);
     }
     if (lowestHiddenAbove && !lowestVisibleAbove) {
