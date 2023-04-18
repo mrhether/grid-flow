@@ -1,5 +1,7 @@
 import { Solver, Variable, Strength, Constraint, Operator } from "@lume/kiwi";
 
+const COLLAPSE_SPACING = false;
+
 export interface Widget {
   x: number;
   y: number;
@@ -50,7 +52,6 @@ export function relayoutWidgets(widgets: Widget[]): Widget[] {
 
   // Create a map of widgets above each widget (raycast to the above)
   const widgetAboveMap = createAboveMap(widgets);
-  console.log(widgetAboveMap);
 
   // For each widget add spacing constraints between it and all direct widgets above it
   widgets.forEach((widget) => {
@@ -66,9 +67,10 @@ export function relayoutWidgets(widgets: Widget[]): Widget[] {
       // If there are widgets above this widget, ensure it's y is at least the y of the widget above it + the height of the widget above it + the spacing between the widgets
       widgetsAbove.forEach((widgetAbove) => {
         const widgetAboveVariable = widgetVariables[widgetAbove.id];
-        const spacingBetweenWidgets = widgetAbove.hidden
-          ? 0
-          : Math.max(widget.y - (widgetAbove.y + widgetAbove.height), 0);
+        const spacingBetweenWidgets =
+          widgetAbove.hidden && COLLAPSE_SPACING
+            ? 0
+            : Math.max(widget.y - (widgetAbove.y + widgetAbove.height), 0);
         solver.addConstraint(
           new Constraint(
             widgetVariable.y,
