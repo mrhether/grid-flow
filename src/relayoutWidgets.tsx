@@ -1,3 +1,5 @@
+import { Solver, Variable, Strength, Constraint, Operator } from "@lume/kiwi";
+
 export interface Widget {
   x: number;
   y: number;
@@ -7,14 +9,102 @@ export interface Widget {
   id: string;
 }
 
-function hasOverlap(a: Widget, b: Widget): boolean {
-  const horizontalOverlap = a.x < b.x + b.width && a.x + a.width > b.x;
-  const verticalOverlap = a.y < b.y + b.height && a.y + a.height > b.y;
-  return horizontalOverlap && verticalOverlap;
+class WidgetVariable {
+  private widget: Widget;
+  public y: Variable;
+  public height: Variable;
+
+  constructor(widget: Widget, solver: Solver) {
+    this.widget = widget;
+    this.y = new Variable(widget.id + ".y");
+    this.height = new Variable(widget.id + ".height");
+
+    solver.addEditVariable(this.y, Strength.weak);
+    solver.addEditVariable(this.height, Strength.strong);
+
+    solver.addConstraint(
+      new Constraint(
+        this.height,
+        Operator.Eq,
+        !widget.hidden ? widget.height : 0
+      )
+    );
+
+    // Ensure Y can't go below 0
+    solver.addConstraint(new Constraint(this.y, Operator.Ge, 0));
+  }
+
+  toWidget(): Widget {
+    return {
+      ...this.widget,
+      y: this.y.value(),
+      height: this.height.value(),
+    };
+  }
 }
 
-function moveWidgetBelow(a: Widget, b: Widget): void {
-  a.y = b.y + b.height;
+export function relayoutWidgets(widgets: Widget[]): Widget[] {
+  sort(widgets);
+
+  const { widgetVariables, solver } = createSolver(widgets);
+
+  // Create a map of widgets above each widget (raycast to the above)
+  const widgetAboveMap = createAboveMap(widgets);
+  console.log(widgetAboveMap);
+
+  // For each widget add spacing constraints between it and all direct widgets above it
+  widgets.forEach((widget) => {
+    const widgetVariable = widgetVariables[widget.id];
+    const widgetsAbove = widgetAboveMap[widget.id] ?? [];
+
+    if (widgetsAbove.length === 0) {
+      // If there are no widgets above this widget, ensure it's y is at least 0
+      solver.addConstraint(
+        new Constraint(widgetVariable.y, Operator.Ge, widget.y, Strength.medium)
+      );
+    } else {
+      // If there are widgets above this widget, ensure it's y is at least the y of the widget above it + the height of the widget above it + the spacing between the widgets
+      widgetsAbove.forEach((widgetAbove) => {
+        const widgetAboveVariable = widgetVariables[widgetAbove.id];
+        const spacingBetweenWidgets = widgetAbove.hidden
+          ? 0
+          : Math.max(widget.y - (widgetAbove.y + widgetAbove.height), 0);
+        solver.addConstraint(
+          new Constraint(
+            widgetVariable.y,
+            Operator.Ge,
+            widgetAboveVariable.y
+              .plus(widgetAboveVariable.height)
+              .plus(spacingBetweenWidgets),
+            Strength.medium
+          )
+        );
+      });
+    }
+  });
+
+  // For each widget add constraints to ensure it doesn't overlap with any widgets above it
+  widgets.forEach((widget, i) => {
+    const widgetVariable = widgetVariables[widget.id];
+    for (let j = i - 1; j >= 0; j--) {
+      const widgetAbove = widgets[j];
+      const widgetAboveVariable = widgetVariables[widgetAbove.id];
+
+      if (hasXOverlap(widget, widgetAbove) && !widgetAbove.hidden) {
+        solver.addConstraint(
+          new Constraint(
+            widgetVariable.y,
+            Operator.Ge,
+            widgetAboveVariable.y.plus(widgetAbove.height)
+          )
+        );
+      }
+    }
+  });
+
+  solver.updateVariables();
+
+  return widgets.map((widget) => widgetVariables[widget.id].toWidget());
 }
 
 function hasXOverlap(currentWidget: Widget, widgetAbove: Widget) {
@@ -24,7 +114,7 @@ function hasXOverlap(currentWidget: Widget, widgetAbove: Widget) {
   );
 }
 
-export function relayoutWidgets(widgets: Widget[]): Widget[] {
+function sort(widgets: Widget[]) {
   widgets.sort((a, b) => {
     if (a.y !== b.y) {
       return a.y - b.y;
@@ -32,126 +122,35 @@ export function relayoutWidgets(widgets: Widget[]): Widget[] {
       return a.x - b.x;
     }
   });
-
-  // expandGrowingChildren(widgets);
-  collapseHidden(widgets);
-  // expandGrowingChildren(widgets);
-  return widgets;
 }
 
-function expandGrowingChildren(widgets: Widget[]) {
-  let hasOverlapFound: boolean;
-  do {
-    hasOverlapFound = false;
-    for (let i = 0; i < widgets.length; i++) {
-      for (let j = i + 1; j < widgets.length; j++) {
-        if (hasOverlap(widgets[i], widgets[j]) && !widgets[j].hidden) {
-          hasOverlapFound = true;
-          moveWidgetBelow(widgets[j], widgets[i]);
-        }
-      }
-    }
-  } while (hasOverlapFound);
+function createSolver(widgets: Widget[]) {
+  const solver = new Solver();
+  const widgetVariables = widgets.reduce(
+    (acc, widget) => ({
+      ...acc,
+      [widget.id]: new WidgetVariable(widget, solver),
+    }),
+    {} as { [key: string]: WidgetVariable }
+  );
+  return { widgetVariables, solver };
 }
 
-function collapseHidden(widgets: Widget[]) {
-  const spaceToNearestVisibleAbove = new Map<Widget, number>();
-  for (let i = 0; i < widgets.length; i++) {
-    const currentWidget = widgets[i];
-    // Check if any widgets above are hidden
-    let lowestVisibleAbove = undefined as Widget | undefined;
-    let lowestHiddenAbove = undefined as Widget | undefined;
-    for (let j = i - 1; j >= 0; j--) {
+function createAboveMap(widgets: Widget[]) {
+  const widgetAboveMap = {} as { [key: string]: Widget[] };
+  widgets.forEach((widget, i) => {
+    for (let j = 0; j < i; j++) {
       const widgetAbove = widgets[j];
+      if (hasXOverlap(widget, widgetAbove)) {
+        widgetAboveMap[widget.id] = widgetAboveMap[widget.id] ?? [];
+        widgetAboveMap[widget.id].push(widgetAbove);
 
-      const horizontalOverlap = hasXOverlap(currentWidget, widgetAbove);
-      const isAbove = widgetAbove.y + widgetAbove.height <= currentWidget.y;
-
-      if (horizontalOverlap && isAbove) {
-        if (widgetAbove.hidden) {
-          if (!lowestHiddenAbove) {
-            lowestHiddenAbove = widgetAbove;
-          } else if (
-            lowestHiddenAbove.y + lowestHiddenAbove.height <
-            widgetAbove.y + widgetAbove.height
-          ) {
-            lowestHiddenAbove = widgetAbove;
-          }
-        } else {
-          if (!lowestVisibleAbove) {
-            lowestVisibleAbove = widgetAbove;
-          } else if (
-            lowestVisibleAbove.y + lowestVisibleAbove.height <
-            widgetAbove.y + widgetAbove.height
-          ) {
-            lowestVisibleAbove = widgetAbove;
-          }
-        }
-      }
-
-      spaceToNearestVisibleAbove.set(
-        currentWidget,
-        lowestVisibleAbove
-          ? currentWidget.y - (lowestVisibleAbove.y + lowestVisibleAbove.height)
-          : 0
-      );
-    }
-  }
-
-  console.log("WWW", spaceToNearestVisibleAbove);
-
-  const movedUpWidgets = new Set<Widget>();
-  for (let i = 0; i < widgets.length; i++) {
-    const currentWidget = widgets[i];
-    // Check if any widgets above are hidden
-    let lowestVisibleAbove = undefined as Widget | undefined;
-    let lowestHiddenAbove = undefined as Widget | undefined;
-    for (let j = i - 1; j >= 0; j--) {
-      const widgetAbove = widgets[j];
-
-      const horizontalOverlap = hasXOverlap(currentWidget, widgetAbove);
-      const isAbove = widgetAbove.y + widgetAbove.height <= currentWidget.y;
-
-      if (horizontalOverlap && isAbove) {
-        if (widgetAbove.hidden || movedUpWidgets.has(widgetAbove)) {
-          if (!lowestHiddenAbove) {
-            lowestHiddenAbove = widgetAbove;
-          } else if (
-            lowestHiddenAbove.y + lowestHiddenAbove.height <
-            widgetAbove.y + widgetAbove.height
-          ) {
-            lowestHiddenAbove = widgetAbove;
-          }
-        } else {
-          if (!lowestVisibleAbove) {
-            lowestVisibleAbove = widgetAbove;
-          } else if (
-            lowestVisibleAbove.y + lowestVisibleAbove.height <
-            widgetAbove.y + widgetAbove.height
-          ) {
-            lowestVisibleAbove = widgetAbove;
-          }
-        }
+        // Remove all widgets from the above map that this above map already has
+        widgetAboveMap[widget.id] = widgetAboveMap[widget.id].filter(
+          (w) => (widgetAboveMap[widgetAbove.id] ?? []).indexOf(w) === -1
+        );
       }
     }
-
-    if (
-      lowestHiddenAbove &&
-      lowestVisibleAbove &&
-      lowestHiddenAbove.y + lowestHiddenAbove.height >
-        lowestVisibleAbove?.y + lowestVisibleAbove.height
-    ) {
-      currentWidget.y = Math.max(
-        0,
-        currentWidget.y -
-          lowestHiddenAbove.height -
-          (spaceToNearestVisibleAbove.get(lowestHiddenAbove) ?? 0)
-      );
-      movedUpWidgets.add(currentWidget);
-    }
-    if (lowestHiddenAbove && !lowestVisibleAbove) {
-      currentWidget.y = Math.max(0, currentWidget.y - lowestHiddenAbove.height);
-      movedUpWidgets.add(currentWidget);
-    }
-  }
+  });
+  return widgetAboveMap;
 }
