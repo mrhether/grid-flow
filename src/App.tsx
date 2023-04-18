@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import _ from "lodash";
 import "./App.css";
 import { Widget, relayoutWidgets } from "./relayoutWidgets";
@@ -51,17 +51,39 @@ const WidgetLayout = ({ widgets, title, showInvisible }: any) => (
   </div>
 );
 
-const App = () => {
-  const [beforeWidgets, setWidgets] = useState<Widget[]>([
-    { x: 0, y: 0, width: 300, height: 37.5, id: "header", hidden: true }, // Header
+const layouts = {
+  classic: [
+    { x: 0, y: 0, width: 300, height: 37.5, id: "header", hidden: false }, // Header
     { x: 0, y: 40, width: 62.5, height: 200, id: "sidebar", hidden: false }, // Sidebar
-    { x: 65, y: 40, width: 200, height: 100, id: "main", hidden: true }, // Main article
+    { x: 65, y: 40, width: 200, height: 100, id: "main", hidden: false }, // Main article
     { x: 65, y: 150, width: 200, height: 40, id: "related", hidden: false }, // Related articles
-    { x: 65, y: 200, width: 200, height: 175, id: "comments", hidden: false }, // Comments
+    { x: 65, y: 200, width: 200, height: 90, id: "comments", hidden: false }, // Comments
     { x: 0, y: 300, width: 300, height: 37.5, id: "footer", hidden: false }, // Footer
     { x: 270, y: 45, width: 25, height: 25, id: "fb", hidden: false }, // Floating button (overlap)
     { x: 270, y: 75, width: 25, height: 25, id: "ig", hidden: false }, // Floating button (overlap)
-  ]);
+  ],
+  blog: [
+    { x: 0, y: 0, width: 300, height: 37.5, id: "header", hidden: false },
+    { x: 0, y: 40, width: 62.5, height: 200, id: "sidebar", hidden: false },
+    { x: 65, y: 40, width: 235, height: 250, id: "main", hidden: false },
+    { x: 0, y: 300, width: 300, height: 37.5, id: "footer", hidden: false },
+  ],
+  porfolio: [
+    { x: 0, y: 0, width: 300, height: 37.5, id: "header", hidden: false },
+    { x: 0, y: 40, width: 300, height: 125, id: "hero", hidden: false },
+    { x: 0, y: 170, width: 100, height: 100, id: "project1", hidden: false },
+    { x: 100, y: 170, width: 100, height: 100, id: "project2", hidden: false },
+    { x: 200, y: 170, width: 100, height: 100, id: "project3", hidden: false },
+    { x: 0, y: 300, width: 300, height: 37.5, id: "footer", hidden: false },
+  ],
+};
+
+const App = () => {
+  const [layout, setLayout] = useState<keyof typeof layouts>("classic");
+  const [beforeWidgets, setWidgets] = useState<Widget[]>(layouts[layout]);
+  useEffect(() => {
+    setWidgets(layouts[layout]);
+  }, [layout]);
 
   let afterWidgets = beforeWidgets;
   try {
@@ -73,6 +95,17 @@ const App = () => {
 
   return (
     <div>
+      <h1>Layouts</h1>
+      <div style={{ display: "flex", gap: 8, padding: 16 }}>
+        {Object.keys(layouts).map((layoutName) => (
+          <button
+            key={layoutName}
+            onClick={() => setLayout(layoutName as keyof typeof layouts)}
+          >
+            {layoutName}
+          </button>
+        ))}
+      </div>
       <h1>Control Visibility</h1>
       <div style={{ display: "flex", gap: 8, padding: 16 }}>
         {beforeWidgets.map((widget, index) => (
@@ -90,7 +123,7 @@ const App = () => {
           </div>
         ))}
       </div>
-      <h1>Layout</h1>
+      <h1>{layout}</h1>
       <div style={{ display: "flex", flexDirection: "row" }}>
         <WidgetLayout
           widgets={beforeWidgets}
