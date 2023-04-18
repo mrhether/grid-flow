@@ -76,6 +76,19 @@ const layouts = {
     { x: 200, y: 170, width: 100, height: 100, id: "project3", hidden: false },
     { x: 0, y: 300, width: 300, height: 37.5, id: "footer", hidden: false },
   ],
+  theverge: [
+    { x: 0, y: 0, width: 300, height: 37.5, id: "header", hidden: false },
+    { x: 0, y: 40, width: 300, height: 100, id: "hero", hidden: false },
+    { x: 0, y: 145, width: 150, height: 100, id: "featured1", hidden: false },
+    { x: 150, y: 145, width: 150, height: 100, id: "featured2", hidden: false },
+    { x: 0, y: 250, width: 100, height: 100, id: "news1", hidden: false },
+    { x: 100, y: 250, width: 100, height: 100, id: "news2", hidden: false },
+    { x: 200, y: 250, width: 100, height: 100, id: "news3", hidden: false },
+    { x: 0, y: 355, width: 100, height: 100, id: "news4", hidden: false },
+    { x: 100, y: 355, width: 100, height: 100, id: "news5", hidden: false },
+    { x: 200, y: 355, width: 100, height: 100, id: "news6", hidden: false },
+    { x: 0, y: 460, width: 300, height: 37.5, id: "footer", hidden: false },
+  ],
 };
 
 const App = () => {
