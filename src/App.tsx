@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import _ from "lodash";
 import "./App.css";
 import { Widget, relayoutWidgets } from "./relayoutWidgets";
+import { animated, useSpring } from "react-spring";
 
 export const WidgetComp = ({
   x,
@@ -12,25 +13,22 @@ export const WidgetComp = ({
   hidden,
   showInvisible,
   children,
-}: any) => (
-  <div
-    style={{
-      position: "absolute",
-      left: x,
-      top: y + 64,
-      width,
-      height,
-      backgroundColor: "#11111111",
-      opacity: showInvisible ? 1 : hidden ? 0.1 : 1,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      border: "1px solid black",
-    }}
-  >
-    {children}
-  </div>
-);
+}: any) => {
+  const style = useSpring({
+    position: "absolute",
+    left: x,
+    top: y + 64,
+    width,
+    height,
+    backgroundColor: "#11111111",
+    opacity: showInvisible ? 1 : hidden ? 0.1 : 1,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    border: "1px solid black",
+  });
+  return <animated.div style={style as any}>{children}</animated.div>;
+};
 
 const WidgetLayout = ({ widgets, title, showInvisible }: any) => (
   <div
