@@ -64,24 +64,34 @@ export function relayoutWidgets(widgets: Widget[]): Widget[] {
         new Constraint(widgetVariable.y, Operator.Ge, widget.y, Strength.medium)
       );
     } else {
-      // If there are widgets above this widget, ensure it's y is at least the y of the widget above it + the height of the widget above it + the spacing between the widgets
-      widgetsAbove.forEach((widgetAbove) => {
-        const widgetAboveVariable = widgetVariables[widgetAbove.id];
+      const addSpacingConstraint = (widgetA: Widget, widgetB: Widget) => {
+        const widgetAV = widgetVariables[widgetA.id];
+        const widgetBV = widgetVariables[widgetB.id];
         const spacingBetweenWidgets =
-          widgetAbove.hidden && COLLAPSE_SPACING
+          widgetB.hidden && COLLAPSE_SPACING
             ? 0
-            : Math.max(widget.y - (widgetAbove.y + widgetAbove.height), 0);
+            : Math.max(widgetA.y - (widgetB.y + widgetB.height), 0);
         solver.addConstraint(
           new Constraint(
-            widgetVariable.y,
+            widgetAV.y,
             Operator.Ge,
-            widgetAboveVariable.y
-              .plus(widgetAboveVariable.height)
-              .plus(spacingBetweenWidgets),
+            widgetBV.y.plus(widgetBV.height).plus(spacingBetweenWidgets),
             Strength.medium
           )
         );
-      });
+      };
+
+      const closestWidgetAbove = widgetsAbove.reduce((closest, widgetAbove) =>
+        widgetAbove.y + widgetAbove.height > closest.y + closest.height
+          ? widgetAbove
+          : closest
+      );
+      addSpacingConstraint(widget, closestWidgetAbove);
+
+      // If there are widgets above this widget, ensure it's y is at least the y of the widget above it + the height of the widget above it + the spacing between the widgets
+      // widgetsAbove.forEach((widgetAbove) =>
+      //   addSpacingConstraint(widget, widgetAbove)
+      // );
     }
   });
 
