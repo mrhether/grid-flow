@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import _ from "lodash";
 import "./App.css";
-import { Widget, relayoutWidgets } from "./relayoutWidgets";
+import { Widget, layoutWidgets } from "./relayoutWidgets";
 import { animated, useSpring } from "react-spring";
 
 export const WidgetComp = ({
@@ -89,6 +89,33 @@ const layouts = {
     { x: 200, y: 355, width: 100, height: 100, id: "news6", hidden: false },
     { x: 0, y: 460, width: 300, height: 37.5, id: "footer", hidden: false },
   ],
+  bnb: [
+    { x: 0, y: 0, width: 300, height: 37.5, id: "header", hidden: false },
+    { x: 0, y: 40, width: 300, height: 100, id: "search", hidden: false },
+    { x: 0, y: 145, width: 100, height: 100, id: "listing1", hidden: false },
+    { x: 100, y: 145, width: 100, height: 100, id: "listing2", hidden: false },
+    { x: 200, y: 145, width: 100, height: 100, id: "listing3", hidden: false },
+    { x: 0, y: 250, width: 100, height: 100, id: "listing4", hidden: false },
+    { x: 100, y: 250, width: 100, height: 100, id: "listing5", hidden: false },
+    { x: 200, y: 250, width: 100, height: 100, id: "listing6", hidden: false },
+    { x: 0, y: 355, width: 300, height: 100, id: "experiences", hidden: false },
+    { x: 0, y: 460, width: 300, height: 37.5, id: "footer", hidden: false },
+  ],
+  pin: [
+    { x: 0, y: 0, width: 50, height: 37.5, id: "logo", hidden: false },
+    { x: 50, y: 5, width: 150, height: 30, id: "navigation", hidden: false },
+    { x: 200, y: 5, width: 50, height: 30, id: "acc", hidden: false },
+    { x: 250, y: 0, width: 50, height: 37.5, id: "help", hidden: false },
+    { x: 0, y: 40, width: 300, height: 100, id: "search", hidden: false },
+    { x: 0, y: 145, width: 100, height: 100, id: "pin1", hidden: false },
+    { x: 100, y: 145, width: 100, height: 150, id: "pin2", hidden: false },
+    { x: 200, y: 145, width: 100, height: 120, id: "pin3", hidden: false },
+    { x: 0, y: 250, width: 100, height: 130, id: "pin4", hidden: false },
+    { x: 100, y: 300, width: 100, height: 110, id: "pin5", hidden: false },
+    { x: 200, y: 270, width: 100, height: 140, id: "pin6", hidden: false },
+    { x: 0, y: 385, width: 300, height: 100, id: "experiences", hidden: false },
+    { x: 0, y: 490, width: 300, height: 37.5, id: "footer", hidden: false },
+  ],
 };
 
 const App = () => {
@@ -99,10 +126,12 @@ const App = () => {
   }, [layout]);
 
   let afterWidgets = beforeWidgets;
+  let error = undefined;
   try {
-    afterWidgets = relayoutWidgets(_.cloneDeep(beforeWidgets));
-  } catch (e) {
+    afterWidgets = layoutWidgets(_.cloneDeep(beforeWidgets));
+  } catch (e: any) {
     afterWidgets = [];
+    error = e.message;
     console.log(e);
   }
 
@@ -149,6 +178,7 @@ const App = () => {
           showInvisible={false}
         />
       </div>
+      {error && <div style={{ color: "red" }}>{error}</div>}
     </div>
   );
 };

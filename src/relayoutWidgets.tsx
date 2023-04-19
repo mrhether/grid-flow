@@ -1,7 +1,5 @@
 import { Solver, Variable, Strength, Constraint, Operator } from "@lume/kiwi";
 
-const COLLAPSE_SPACING = false;
-
 export interface Widget {
   x: number;
   y: number;
@@ -13,6 +11,7 @@ export interface Widget {
 
 class WidgetVariable {
   private widget: Widget;
+
   public y: Variable;
   public height: Variable;
 
@@ -22,7 +21,6 @@ class WidgetVariable {
     this.height = new Variable(widget.id + ".height");
 
     solver.addEditVariable(this.y, Strength.weak);
-    solver.addEditVariable(this.height, Strength.strong);
 
     solver.addConstraint(
       new Constraint(
@@ -45,7 +43,21 @@ class WidgetVariable {
   }
 }
 
-export function relayoutWidgets(widgets: Widget[]): Widget[] {
+type Options = {
+  collapseSpacing?: boolean;
+  measureOnlyNearestAbove?: boolean;
+};
+
+const DefaultOptions: Options = {
+  collapseSpacing: true,
+  measureOnlyNearestAbove: true,
+};
+
+export function layoutWidgets(
+  widgets: Widget[],
+  _options: Options = {}
+): Widget[] {
+  const options = { ...DefaultOptions, ..._options };
   sort(widgets);
 
   const { widgetVariables, solver } = createSolver(widgets);
@@ -68,7 +80,7 @@ export function relayoutWidgets(widgets: Widget[]): Widget[] {
         const widgetAV = widgetVariables[widgetA.id];
         const widgetBV = widgetVariables[widgetB.id];
         const spacingBetweenWidgets =
-          widgetB.hidden && COLLAPSE_SPACING
+          widgetB.hidden && options.collapseSpacing
             ? 0
             : Math.max(widgetA.y - (widgetB.y + widgetB.height), 0);
         solver.addConstraint(
@@ -81,17 +93,21 @@ export function relayoutWidgets(widgets: Widget[]): Widget[] {
         );
       };
 
-      const closestWidgetAbove = widgetsAbove.reduce((closest, widgetAbove) =>
-        widgetAbove.y + widgetAbove.height > closest.y + closest.height
-          ? widgetAbove
-          : closest
-      );
-      addSpacingConstraint(widget, closestWidgetAbove);
-
-      // If there are widgets above this widget, ensure it's y is at least the y of the widget above it + the height of the widget above it + the spacing between the widgets
-      // widgetsAbove.forEach((widgetAbove) =>
-      //   addSpacingConstraint(widget, widgetAbove)
-      // );
+      if (options.measureOnlyNearestAbove) {
+        const closestWidgetsAbove = widgetsAbove.reduce(
+          (closest, widgetAbove) => {
+            const wBottom = widgetAbove.y + widgetAbove.height;
+            const cBottom =
+              closest.length > 0 ? closest[0].y + closest[0].height : -Infinity;
+            if (wBottom === cBottom) return [...closest, widgetAbove];
+            return wBottom > cBottom ? [widgetAbove] : closest;
+          },
+          [] as Widget[]
+        );
+        closestWidgetsAbove.forEach(addSpacingConstraint.bind(null, widget));
+      } else {
+        widgetsAbove.forEach(addSpacingConstraint.bind(null, widget));
+      }
     }
   });
 
